@@ -6,9 +6,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Meter, MeterReading } from '@/types/meter';
 import { storageUtils } from '@/utils/storage';
-import { Edit, Trash2, Camera } from 'lucide-react';
+import { Edit, Trash2, Camera, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
+import ExportReadings from './ExportReadings';
 
 interface ReadingsViewProps {
   open: boolean;
@@ -20,6 +21,7 @@ interface ReadingsViewProps {
 
 const ReadingsView = ({ open, onClose, meter, onEditReading, onDeleteReading }: ReadingsViewProps) => {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [showExport, setShowExport] = useState(false);
   const readings = storageUtils.getReadingsForMeter(meter.id)
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -28,7 +30,19 @@ const ReadingsView = ({ open, onClose, meter, onEditReading, onDeleteReading }: 
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Ablesungen für {meter.name}</DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle>Ablesungen für {meter.name}</DialogTitle>
+              {readings.length > 0 && (
+                <Button
+                  onClick={() => setShowExport(true)}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Export
+                </Button>
+              )}
+            </div>
           </DialogHeader>
           
           <div className="space-y-3">
@@ -119,6 +133,13 @@ const ReadingsView = ({ open, onClose, meter, onEditReading, onDeleteReading }: 
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Export dialog */}
+      <ExportReadings
+        open={showExport}
+        onClose={() => setShowExport(false)}
+        meter={meter}
+      />
     </>
   );
 };
