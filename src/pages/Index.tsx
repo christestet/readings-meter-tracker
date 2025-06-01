@@ -8,8 +8,11 @@ import MeterForm from '@/components/MeterForm';
 import ReadingForm from '@/components/ReadingForm';
 import ReadingsView from '@/components/ReadingsView';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
-import { Plus, Activity, Zap, Droplets, Flame, BarChart3 } from 'lucide-react';
+import Statistics from '@/components/Statistics';
+import Settings from '@/components/Settings';
+import { Plus, Activity, Zap, Droplets, Flame, BarChart3, ChartBar, Settings as SettingsIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -251,6 +254,9 @@ const Index = () => {
     setShowReadingsView(true);
   };
 
+  // Prüfen ob Ablesungen vorhanden sind für Statistiken
+  const hasReadings = storageUtils.getReadings().length > 0;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       <div className="container mx-auto p-4 max-w-6xl">
@@ -270,110 +276,141 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Enhanced Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card className="border-0 bg-gradient-to-br from-background to-muted/30">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <BarChart3 className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-foreground">{meters.length}</div>
-                  <div className="text-sm text-muted-foreground">Zähler</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-0 bg-gradient-to-br from-yellow-500/10 to-transparent">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-yellow-500/10">
-                  <Zap className="h-5 w-5 text-yellow-500" />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-foreground">{metersByType.strom}</div>
-                  <div className="text-sm text-muted-foreground">Strom</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <Tabs defaultValue="meters" className="space-y-6">
+          <TabsList className="w-full justify-start">
+            <TabsTrigger value="meters" className="flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Zähler
+            </TabsTrigger>
+            {hasReadings && (
+              <TabsTrigger value="statistics" className="flex items-center gap-2">
+                <ChartBar className="h-4 w-4" />
+                Statistiken
+              </TabsTrigger>
+            )}
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <SettingsIcon className="h-4 w-4" />
+              Einstellungen
+            </TabsTrigger>
+          </TabsList>
 
-          <Card className="border-0 bg-gradient-to-br from-orange-500/10 to-transparent">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-orange-500/10">
-                  <Flame className="h-5 w-5 text-orange-500" />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-foreground">{metersByType.gas}</div>
-                  <div className="text-sm text-muted-foreground">Gas</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <TabsContent value="meters" className="space-y-6">
+            {/* Enhanced Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card className="border-0 bg-gradient-to-br from-background to-muted/30">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <BarChart3 className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-foreground">{meters.length}</div>
+                      <div className="text-sm text-muted-foreground">Zähler</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="border-0 bg-gradient-to-br from-yellow-500/10 to-transparent">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-yellow-500/10">
+                      <Zap className="h-5 w-5 text-yellow-500" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-foreground">{metersByType.strom}</div>
+                      <div className="text-sm text-muted-foreground">Strom</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Card className="border-0 bg-gradient-to-br from-blue-500/10 to-transparent">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <Droplets className="h-5 w-5 text-blue-500" />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-foreground">{metersByType.wasser}</div>
-                  <div className="text-sm text-muted-foreground">Wasser</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              <Card className="border-0 bg-gradient-to-br from-orange-500/10 to-transparent">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-orange-500/10">
+                      <Flame className="h-5 w-5 text-orange-500" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-foreground">{metersByType.gas}</div>
+                      <div className="text-sm text-muted-foreground">Gas</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-        {/* Add Meter Button */}
-        {meters.length > 0 && (
-          <div className="mb-8">
-            <Button
-              onClick={() => setShowMeterForm(true)}
-              className="w-full md:w-auto h-12 px-6"
-              size="lg"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Neuen Zähler hinzufügen
-            </Button>
-          </div>
-        )}
+              <Card className="border-0 bg-gradient-to-br from-blue-500/10 to-transparent">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-blue-500/10">
+                      <Droplets className="h-5 w-5 text-blue-500" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-foreground">{metersByType.wasser}</div>
+                      <div className="text-sm text-muted-foreground">Wasser</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
 
-        {/* Meters Grid */}
-        {meters.length === 0 ? (
-          <Card className="border-0 bg-gradient-to-br from-background to-muted/30">
-            <CardContent className="text-center py-16">
-              <div className="p-4 rounded-full bg-muted/50 w-20 h-20 mx-auto mb-6 flex items-center justify-center">
-                <Activity className="h-10 w-10 text-muted-foreground" />
+            {/* Add Meter Button */}
+            {meters.length > 0 && (
+              <div>
+                <Button
+                  onClick={() => setShowMeterForm(true)}
+                  className="w-full md:w-auto h-12 px-6"
+                  size="lg"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Neuen Zähler hinzufügen
+                </Button>
               </div>
-              <h3 className="text-xl font-semibold mb-3">Noch keine Zähler vorhanden</h3>
-              <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                Beginnen Sie mit der Erfassung Ihrer Zählerstände, indem Sie Ihren ersten Zähler hinzufügen.
-              </p>
-              <Button onClick={() => setShowMeterForm(true)} size="lg" className="h-12 px-8">
-                <Plus className="h-5 w-5 mr-2" />
-                Ersten Zähler hinzufügen
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {meters.map(meter => (
-              <MeterCard
-                key={meter.id}
-                meter={meter}
-                onEdit={handleEditMeter}
-                onDelete={handleDeleteMeter}
-                onAddReading={handleAddReading}
-                onViewReadings={handleViewReadings}
-              />
-            ))}
-          </div>
-        )}
+            )}
+
+            {/* Meters Grid */}
+            {meters.length === 0 ? (
+              <Card className="border-0 bg-gradient-to-br from-background to-muted/30">
+                <CardContent className="text-center py-16">
+                  <div className="p-4 rounded-full bg-muted/50 w-20 h-20 mx-auto mb-6 flex items-center justify-center">
+                    <Activity className="h-10 w-10 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-3">Noch keine Zähler vorhanden</h3>
+                  <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+                    Beginnen Sie mit der Erfassung Ihrer Zählerstände, indem Sie Ihren ersten Zähler hinzufügen.
+                  </p>
+                  <Button onClick={() => setShowMeterForm(true)} size="lg" className="h-12 px-8">
+                    <Plus className="h-5 w-5 mr-2" />
+                    Ersten Zähler hinzufügen
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {meters.map(meter => (
+                  <MeterCard
+                    key={meter.id}
+                    meter={meter}
+                    onEdit={handleEditMeter}
+                    onDelete={handleDeleteMeter}
+                    onAddReading={handleAddReading}
+                    onViewReadings={handleViewReadings}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {hasReadings && (
+            <TabsContent value="statistics" className="space-y-6">
+              <Statistics meters={meters} />
+            </TabsContent>
+          )}
+
+          <TabsContent value="settings" className="space-y-6">
+            <Settings />
+          </TabsContent>
+        </Tabs>
 
         {/* Forms and Dialogs */}
         <MeterForm
