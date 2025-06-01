@@ -10,6 +10,16 @@ import ReadingsView from '@/components/ReadingsView';
 import ThemeSwitcher from '@/components/ThemeSwitcher';
 import { Plus, Activity, Zap, Droplets, Flame, BarChart3 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
 
 const Index = () => {
   const [meters, setMeters] = useState<Meter[]>([]);
@@ -20,6 +30,17 @@ const Index = () => {
   const [editingReading, setEditingReading] = useState<MeterReading | undefined>();
   const [selectedMeter, setSelectedMeter] = useState<Meter | undefined>();
   const { toast } = useToast();
+
+  // State für Bestätigungsdialog
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  }>({ open: false, title: '', description: '', onConfirm: () => {} });
+
+  // Fehlerstatus für ReadingForm
+  const [readingFormError, setReadingFormError] = useState<string | undefined>();
 
   useEffect(() => {
     setMeters(storageUtils.getMeters());
@@ -60,25 +81,76 @@ const Index = () => {
   const handleDeleteMeter = (meterId: string) => {
     const meter = meters.find(m => m.id === meterId);
     if (!meter) return;
-
-    const updatedMeters = meters.filter(m => m.id !== meterId);
-    setMeters(updatedMeters);
-    storageUtils.saveMeters(updatedMeters);
-
-    // Also delete all readings for this meter
-    const allReadings = storageUtils.getReadings();
-    const filteredReadings = allReadings.filter(r => r.meterId !== meterId);
-    storageUtils.saveReadings(filteredReadings);
-
-    toast({
-      title: "Zähler gelöscht",
-      description: `${meter.name} und alle zugehörigen Ablesungen wurden gelöscht.`,
+    setConfirmDialog({
+      open: true,
+      title: 'Zähler löschen',
+      description: `Möchten Sie den Zähler "${meter.name}" und alle zugehörigen Ablesungen wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden!`,
+      onConfirm: () => {
+        const updatedMeters = meters.filter(m => m.id !== meterId);
+        setMeters(updatedMeters);
+        storageUtils.saveMeters(updatedMeters);
+        // Auch alle Ablesungen löschen
+        const allReadings = storageUtils.getReadings();
+        const filteredReadings = allReadings.filter(r => r.meterId !== meterId);
+        storageUtils.saveReadings(filteredReadings);
+        toast({
+          title: 'Zähler gelöscht',
+          description: `${meter.name} und alle zugehörigen Ablesungen wurden gelöscht.`,
+        });
+      },
     });
   };
 
   const handleSaveReading = (readingData: Omit<MeterReading, 'id' | 'createdAt'>) => {
     const allReadings = storageUtils.getReadings();
-    
+
+    // Hole alle Ablesungen für diesen Zähler
+    const readingsForMeter = allReadings.filter(r => r.meterId === readingData.meterId);
+    const newDate = new Date(readingData.date);
+    const newValue = readingData.value;
+
+    // Sortiere die Ablesungen nach Datum (ohne die aktuell bearbeitete Ablesung)
+    const sortedReadings = readingsForMeter
+      .filter(r => r.id !== editingReading?.id)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Prüfe auf Duplikate am gleichen Tag (außer beim Bearbeiten)
+    const sameDate = sortedReadings.find(r => 
+      new Date(r.date).toISOString().split('T')[0] === newDate.toISOString().split('T')[0]
+    );
+
+    // Finde die letzte vorherige Ablesung
+    const previousReading = [...sortedReadings]
+      .reverse()
+      .find(r => new Date(r.date) <= newDate);
+
+    // Finde die nächste Ablesung
+    const nextReading = sortedReadings
+      .find(r => new Date(r.date) > newDate);
+
+    // Validierungen mit entsprechenden Fehlermeldungen
+    if (sameDate) {
+      setReadingFormError('Es existiert bereits eine Ablesung für dieses Datum. Bitte wählen Sie ein anderes Datum oder bearbeiten Sie die vorhandene Ablesung.');
+      return;
+    }
+
+    if (previousReading && previousReading.value >= newValue) {
+      setReadingFormError(
+        `Der neue Zählerstand (${newValue} ${selectedMeter?.unit}) muss größer sein als der vorherige vom ${new Date(previousReading.date).toLocaleDateString('de-DE')} (${previousReading.value} ${selectedMeter?.unit}).`
+      );
+      return;
+    }
+
+    if (nextReading && nextReading.value <= newValue) {
+      setReadingFormError(
+        `Der neue Zählerstand (${newValue} ${selectedMeter?.unit}) muss kleiner sein als der nachfolgende vom ${new Date(nextReading.date).toLocaleDateString('de-DE')} (${nextReading.value} ${selectedMeter?.unit}).`
+      );
+      return;
+    }
+
+    // Wenn wir hier ankommen, gab es keine Validierungsfehler
+    setReadingFormError(undefined);
+
     if (editingReading) {
       // Update existing reading
       const updatedReadings = allReadings.map(reading =>
@@ -104,40 +176,56 @@ const Index = () => {
         description: "Die neue Ablesung wurde erfolgreich gespeichert.",
       });
     }
+    
+    setShowReadingForm(false);
     setEditingReading(undefined);
     setSelectedMeter(undefined);
   };
 
   const handleDeleteReading = (readingId: string) => {
     const allReadings = storageUtils.getReadings();
-    const filteredReadings = allReadings.filter(r => r.id !== readingId);
-    storageUtils.saveReadings(filteredReadings);
-    toast({
-      title: "Ablesung gelöscht",
-      description: "Die Ablesung wurde erfolgreich gelöscht.",
+    const reading = allReadings.find(r => r.id === readingId);
+    if (!reading) return;
+    setConfirmDialog({
+      open: true,
+      title: 'Ablesung löschen',
+      description: 'Möchten Sie diese Ablesung wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden!',
+      onConfirm: () => {
+        const filteredReadings = allReadings.filter(r => r.id !== readingId);
+        storageUtils.saveReadings(filteredReadings);
+        toast({
+          title: 'Ablesung gelöscht',
+          description: 'Die Ablesung wurde erfolgreich gelöscht.',
+        });
+      },
     });
   };
 
+  // Optional: Bestätigung für Bearbeiten (kann entfernt werden, falls nicht gewünscht)
   const handleEditMeter = (meter: Meter) => {
-    setEditingMeter(meter);
-    setShowMeterForm(true);
-  };
-
-  const handleAddReading = (meter: Meter) => {
-    setSelectedMeter(meter);
-    setShowReadingForm(true);
-  };
-
-  const handleViewReadings = (meter: Meter) => {
-    setSelectedMeter(meter);
-    setShowReadingsView(true);
+    setConfirmDialog({
+      open: true,
+      title: 'Zähler bearbeiten',
+      description: `Möchten Sie den Zähler "${meter.name}" bearbeiten?`,
+      onConfirm: () => {
+        setEditingMeter(meter);
+        setShowMeterForm(true);
+      },
+    });
   };
 
   const handleEditReading = (reading: MeterReading) => {
-    setEditingReading(reading);
-    setSelectedMeter(meters.find(m => m.id === reading.meterId));
-    setShowReadingForm(true);
-    setShowReadingsView(false);
+    setConfirmDialog({
+      open: true,
+      title: 'Ablesung bearbeiten',
+      description: 'Möchten Sie diese Ablesung bearbeiten?',
+      onConfirm: () => {
+        setEditingReading(reading);
+        setSelectedMeter(meters.find(m => m.id === reading.meterId));
+        setShowReadingForm(true);
+        setShowReadingsView(false);
+      },
+    });
   };
 
   const getMetersCountByType = () => {
@@ -149,6 +237,18 @@ const Index = () => {
   };
 
   const metersByType = getMetersCountByType();
+
+  // Funktion zum Hinzufügen einer Ablesung für einen bestimmten Zähler
+  const handleAddReading = (meter: Meter) => {
+    setSelectedMeter(meter);
+    setShowReadingForm(true);
+  };
+
+  // Funktion zum Anzeigen der Ablesungen eines bestimmten Zählers
+  const handleViewReadings = (meter: Meter) => {
+    setSelectedMeter(meter);
+    setShowReadingsView(true);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
@@ -229,16 +329,18 @@ const Index = () => {
         </div>
 
         {/* Add Meter Button */}
-        <div className="mb-8">
-          <Button
-            onClick={() => setShowMeterForm(true)}
-            className="w-full md:w-auto h-12 px-6"
-            size="lg"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            Neuen Zähler hinzufügen
-          </Button>
-        </div>
+        {meters.length > 0 && (
+          <div className="mb-8">
+            <Button
+              onClick={() => setShowMeterForm(true)}
+              className="w-full md:w-auto h-12 px-6"
+              size="lg"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Neuen Zähler hinzufügen
+            </Button>
+          </div>
+        )}
 
         {/* Meters Grid */}
         {meters.length === 0 ? (
@@ -290,10 +392,12 @@ const Index = () => {
               setShowReadingForm(false);
               setSelectedMeter(undefined);
               setEditingReading(undefined);
+              setReadingFormError(undefined);
             }}
             onSave={handleSaveReading}
             meter={selectedMeter}
             reading={editingReading}
+            error={readingFormError} // Fehlerstatus hier übergeben
           />
         )}
 
@@ -309,6 +413,27 @@ const Index = () => {
             onDeleteReading={handleDeleteReading}
           />
         )}
+
+        {/* Bestätigungsdialog */}
+        <AlertDialog open={confirmDialog.open} onOpenChange={open => setConfirmDialog(v => ({ ...v, open }))}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{confirmDialog.title}</AlertDialogTitle>
+              <AlertDialogDescription>{confirmDialog.description}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  confirmDialog.onConfirm();
+                  setConfirmDialog(v => ({ ...v, open: false }));
+                }}
+              >
+                Bestätigen
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

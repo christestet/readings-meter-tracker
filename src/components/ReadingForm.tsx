@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -11,12 +10,13 @@ import { Camera } from 'lucide-react';
 interface ReadingFormProps {
   open: boolean;
   onClose: () => void;
-  onSave: (reading: Omit<MeterReading, 'id' | 'createdAt'>) => void;
+  onSave: (reading: Omit<MeterReading, 'id' | 'createdAt'>) => Promise<boolean>; // Geändert zu Promise<boolean>
   meter: Meter;
   reading?: MeterReading;
+  error?: string;
 }
 
-const ReadingForm = ({ open, onClose, onSave, meter, reading }: ReadingFormProps) => {
+const ReadingForm = ({ open, onClose, onSave, meter, reading, error }: ReadingFormProps) => {
   const [formData, setFormData] = useState({
     value: reading?.value?.toString() || '',
     date: reading?.date || new Date().toISOString().split('T')[0],
@@ -24,18 +24,40 @@ const ReadingForm = ({ open, onClose, onSave, meter, reading }: ReadingFormProps
     photo: reading?.photo || ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Fehleranzeige für lokale Validierung
+  const [localError, setLocalError] = useState<string | undefined>(undefined);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
-      meterId: meter.id,
-      value: parseFloat(formData.value),
-      date: formData.date,
-      notes: formData.notes,
-      photo: formData.photo
-    });
-    onClose();
-    if (!reading) {
-      setFormData({ value: '', date: new Date().toISOString().split('T')[0], notes: '', photo: '' });
+    
+    // Prüfe, ob Wert eingegeben und gültig ist
+    if (!formData.value || isNaN(Number(formData.value))) {
+      setLocalError('Bitte einen gültigen Zählerstand eingeben.');
+      return;
+    }
+    
+    setLocalError(undefined);
+    setIsSubmitting(true);
+    
+    try {
+      const success = await onSave({
+        meterId: meter.id,
+        value: parseFloat(formData.value),
+        date: formData.date,
+        notes: formData.notes,
+        photo: formData.photo
+      });
+      
+      // Nur schließen und zurücksetzen, wenn erfolgreich gespeichert
+      if (success) {
+        onClose();
+        if (!reading) {
+          setFormData({ value: '', date: new Date().toISOString().split('T')[0], notes: '', photo: '' });
+        }
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -60,6 +82,12 @@ const ReadingForm = ({ open, onClose, onSave, meter, reading }: ReadingFormProps
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
+          {(error || localError) && (
+            <div className="text-sm text-destructive bg-destructive/10 rounded p-2 mb-2">
+              {error || localError}
+            </div>
+          )}
+
           <div>
             <Label htmlFor="value">Zählerstand</Label>
             <div className="flex gap-2">
@@ -72,6 +100,7 @@ const ReadingForm = ({ open, onClose, onSave, meter, reading }: ReadingFormProps
                 placeholder="0.00"
                 required
                 className="flex-1"
+                disabled={isSubmitting}
               />
               <span className="flex items-center px-3 text-sm text-muted-foreground bg-muted rounded-md">
                 {meter.unit}
@@ -87,6 +116,7 @@ const ReadingForm = ({ open, onClose, onSave, meter, reading }: ReadingFormProps
               value={formData.date}
               onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
               required
+              disabled={isSubmitting}
             />
           </div>
 
@@ -100,12 +130,14 @@ const ReadingForm = ({ open, onClose, onSave, meter, reading }: ReadingFormProps
                   accept="image/*"
                   onChange={handlePhotoUpload}
                   className="hidden"
+                  disabled={isSubmitting}
                 />
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => document.getElementById('photo')?.click()}
                   className="w-full"
+                  disabled={isSubmitting}
                 >
                   <Camera className="h-4 w-4 mr-2" />
                   {formData.photo ? 'Foto ändern' : 'Foto aufnehmen'}
@@ -131,15 +163,26 @@ const ReadingForm = ({ open, onClose, onSave, meter, reading }: ReadingFormProps
               onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
               placeholder="Zusätzliche Bemerkungen..."
               rows={3}
+              disabled={isSubmitting}
             />
           </div>
 
           <div className="flex gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onClose} 
+              className="flex-1"
+              disabled={isSubmitting}
+            >
               Abbrechen
             </Button>
-            <Button type="submit" className="flex-1">
-              {reading ? 'Aktualisieren' : 'Speichern'}
+            <Button 
+              type="submit" 
+              className="flex-1"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Speichere...' : (reading ? 'Aktualisieren' : 'Speichern')}
             </Button>
           </div>
         </form>
