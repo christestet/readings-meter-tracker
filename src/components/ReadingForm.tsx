@@ -182,7 +182,10 @@ const ReadingForm = ({ open, onClose, onSave, meter, reading, error }: ReadingFo
               className="flex-1"
               disabled={isSubmitting}
             >
-              {isSubmitting ? 'Speichere...' : (reading ? 'Aktualisieren' : 'Speichern')}
+              {(() => {
+                if (isSubmitting) return 'Speichere...';
+                return reading ? 'Aktualisieren' : 'Speichern';
+              })()}
             </Button>
           </div>
         </form>

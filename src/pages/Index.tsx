@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Meter, MeterReading } from '@/types/meter';
 import { storageUtils } from '@/utils/storage';
 import MeterCard from '@/components/MeterCard';
@@ -101,7 +101,7 @@ const Index = () => {
     });
   };
 
-  const handleSaveReading = (readingData: Omit<MeterReading, 'id' | 'createdAt'>) => {
+  const handleSaveReading = async (readingData: Omit<MeterReading, 'id' | 'createdAt'>): Promise<boolean> => {
     const allReadings = storageUtils.getReadings();
 
     // Hole alle Ablesungen für diesen Zähler
@@ -131,21 +131,21 @@ const Index = () => {
     // Validierungen mit entsprechenden Fehlermeldungen
     if (sameDate) {
       setReadingFormError('Es existiert bereits eine Ablesung für dieses Datum. Bitte wählen Sie ein anderes Datum oder bearbeiten Sie die vorhandene Ablesung.');
-      return;
+      return false;
     }
 
     if (previousReading && previousReading.value >= newValue) {
       setReadingFormError(
         `Der neue Zählerstand (${newValue} ${selectedMeter?.unit}) muss größer sein als der vorherige vom ${new Date(previousReading.date).toLocaleDateString('de-DE')} (${previousReading.value} ${selectedMeter?.unit}).`
       );
-      return;
+      return false;
     }
 
     if (nextReading && nextReading.value <= newValue) {
       setReadingFormError(
         `Der neue Zählerstand (${newValue} ${selectedMeter?.unit}) muss kleiner sein als der nachfolgende vom ${new Date(nextReading.date).toLocaleDateString('de-DE')} (${nextReading.value} ${selectedMeter?.unit}).`
       );
-      return;
+      return false;
     }
 
     // Wenn wir hier ankommen, gab es keine Validierungsfehler
@@ -180,6 +180,7 @@ const Index = () => {
     setShowReadingForm(false);
     setEditingReading(undefined);
     setSelectedMeter(undefined);
+    return true;
   };
 
   const handleDeleteReading = (readingId: string) => {
